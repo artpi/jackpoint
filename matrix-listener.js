@@ -21,46 +21,25 @@ if (!Promise.withResolvers) {
 import sdk from "matrix-js-sdk";
 import { logger } from "matrix-js-sdk/lib/logger.js";
 import { execSync } from "child_process";
-import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONFIG_FILE = join(__dirname, ".matrix-session.json");
-const ENV_FILE = join(__dirname, ".env");
+import { getConfig, loadSession } from "./lib/config.js";
 
 // Check for debug mode
 const DEBUG = process.env.MATRIX_DEBUG === "1";
 
-// Load .env manually
-function loadEnv() {
-  if (!existsSync(ENV_FILE)) return {};
-  const content = readFileSync(ENV_FILE, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.match(/^([^=]+)=(.*)$/);
-    if (match) {
-      env[match[1].trim()] = match[2].trim();
-    }
-  }
-  return env;
-}
-
-const env = loadEnv();
-const MATRIX_HOMESERVER = env.MATRIX_HOMESERVER || "https://matrix.org";
-
 // Disable verbose SDK logging unless in debug mode
 if (!DEBUG) {
   logger.setLevel("silent");
+  logger.disableAll?.();
+  // Override methods directly as fallback
+  ["trace", "debug", "info", "warn", "error", "log"].forEach((method) => {
+    logger[method] = () => {};
+  });
 }
 
-// Load session config
-function loadSession() {
-  if (existsSync(CONFIG_FILE)) {
-    return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
-  }
-  return {};
-}
+// Get config
+const config = getConfig();
+const MATRIX_HOMESERVER = config.homeserver;
 
 // Build reverse mapping: roomId -> sessionKey
 function getRoomToSessionMap() {
@@ -136,7 +115,9 @@ export class MatrixListener {
     const session = loadSession();
 
     if (!session.accessToken || !session.userId) {
-      console.error("[Listener] No Matrix session found. Run claude first to authenticate.");
+      if (DEBUG) {
+        console.log("[Listener] No Matrix session found");
+      }
       return false;
     }
 
@@ -146,12 +127,25 @@ export class MatrixListener {
       console.log("[Listener] Watching rooms:", Object.keys(this.roomToSession));
     }
 
+    // Create silent logger for client
+    const silentLogger = {
+      getChild: () => silentLogger,
+      trace: () => {},
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      log: () => {},
+    };
+
     // Create client with sync support
     this.client = sdk.createClient({
       baseUrl: MATRIX_HOMESERVER,
       accessToken: session.accessToken,
       userId: session.userId,
+      logger: DEBUG ? undefined : silentLogger,
     });
+    this.session = session;
 
     // Listen for new messages
     this.client.on("Room.timeline", (event, room, toStartOfTimeline) => {
@@ -166,7 +160,7 @@ export class MatrixListener {
       if (content.msgtype !== "m.text") return;
 
       // Ignore our own messages
-      if (event.getSender() === session.userId) return;
+      if (event.getSender() === this.session.userId) return;
 
       // Deduplicate - skip if we've already processed this event
       const eventId = event.getId();
@@ -202,7 +196,9 @@ export class MatrixListener {
 
       const tmuxTarget = getTmuxTarget(sessionKey);
       if (!tmuxTarget) {
-        console.log(`[Listener] Session ${sessionKey} has no tmux target`);
+        if (DEBUG) {
+          console.log(`[Listener] Session ${sessionKey} has no tmux target`);
+        }
         return;
       }
 

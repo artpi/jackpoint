@@ -1,9 +1,12 @@
 {
-  "name": "clauder",
+  "name": "jackpoint",
   "version": "1.0.0",
   "description": "Matrix CLI - login and send DMs",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "jackpoint": "./claude-matrix.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

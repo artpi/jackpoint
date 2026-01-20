@@ -13,17 +13,37 @@ if (!Promise.withResolvers) {
 }
 
 import sdk from "matrix-js-sdk";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { logger } from "matrix-js-sdk/lib/logger.js";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
 import { execSync } from "child_process";
 import { hostname } from "os";
+import {
+  getConfig,
+  loadSession,
+  saveSession,
+  isConfigured,
+  runSetupWizard,
+} from "./lib/config.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Check for debug mode
+const DEBUG = process.env.MATRIX_DEBUG === "1";
 
-// Config
-const CONFIG_FILE = join(__dirname, ".matrix-session.json");
-const ENV_FILE = join(__dirname, ".env");
+// Disable verbose SDK logging unless in debug mode
+if (!DEBUG) {
+  logger.setLevel("silent");
+  logger.disableAll?.();
+  // Override methods directly as fallback
+  ["trace", "debug", "info", "warn", "error", "log"].forEach((method) => {
+    logger[method] = () => {};
+  });
+}
+
+// Get config values
+const config = getConfig();
+const MATRIX_HOMESERVER = config.homeserver;
+const MATRIX_USER = config.user;
+const MATRIX_PASS = config.password;
+const MATRIX_RECIPIENT = config.recipient;
 
 // Get tmux session identifier (session:window.pane format)
 export function getTmuxPane() {
@@ -74,40 +94,27 @@ export function getSessionKey(cwd = null) {
   return `${host}:default`;
 }
 
-// Load .env manually (simple parser)
-function loadEnv() {
-  if (!existsSync(ENV_FILE)) return {};
-  const content = readFileSync(ENV_FILE, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.match(/^([^=]+)=(.*)$/);
-    if (match) {
-      env[match[1].trim()] = match[2].trim();
-    }
-  }
-  return env;
+// Re-export for use by other modules
+export { isConfigured, runSetupWizard };
+
+// Silent logger for SDK
+const silentLogger = {
+  getChild: () => silentLogger,
+  trace: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  log: () => {},
+};
+
+// Get logger based on debug mode
+function getClientLogger() {
+  return DEBUG ? undefined : silentLogger;
 }
 
-const env = loadEnv();
-const MATRIX_HOMESERVER = env.MATRIX_HOMESERVER || "https://matrix.org";
-const MATRIX_USER = env.MATRIX_USER;
-const MATRIX_PASS = env.MATRIX_PASS;
-const MATRIX_RECIPIENT = env.MATRIX_RECIPIENT || "@artpi:beeper.com";
-
-// Persistent session storage
-function loadSession() {
-  if (existsSync(CONFIG_FILE)) {
-    return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
-  }
-  return {};
-}
-
-function saveSession(session) {
-  writeFileSync(CONFIG_FILE, JSON.stringify(session, null, 2));
-}
-
-// Get authenticated client
-async function getClient() {
+// Get authenticated client (exported for upfront auth)
+export async function getClient() {
   const session = loadSession();
 
   // Try existing token first
@@ -116,6 +123,7 @@ async function getClient() {
       baseUrl: MATRIX_HOMESERVER,
       accessToken: session.accessToken,
       userId: session.userId,
+      logger: getClientLogger(),
     });
 
     // Verify token still works
@@ -129,10 +137,10 @@ async function getClient() {
 
   // Login with password
   if (!MATRIX_USER || !MATRIX_PASS) {
-    throw new Error("Need MATRIX_USER and MATRIX_PASS in .env");
+    throw new Error("Matrix credentials not configured. Run 'jackpoint --setup' to configure.");
   }
 
-  const tempClient = sdk.createClient({ baseUrl: MATRIX_HOMESERVER });
+  const tempClient = sdk.createClient({ baseUrl: MATRIX_HOMESERVER, logger: getClientLogger() });
   const response = await tempClient.login("m.login.password", {
     user: MATRIX_USER,
     password: MATRIX_PASS,
@@ -148,6 +156,7 @@ async function getClient() {
     baseUrl: MATRIX_HOMESERVER,
     accessToken: response.access_token,
     userId: response.user_id,
+    logger: getClientLogger(),
   });
 
   return { client, session: newSession };
