@@ -12,10 +12,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_FILE = join(__dirname, ".matrix-session.json");
 const ENV_FILE = join(__dirname, ".env");
 
-// Get tmux pane identifier (window.pane format)
+// Get tmux session identifier (session:window.pane format)
 export function getTmuxPane() {
   try {
-    const result = execSync("tmux display-message -p '#{window_index}.#{pane_index}'", {
+    const result = execSync("tmux display-message -p '#{session_name}:#{window_index}.#{pane_index}'", {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
@@ -238,16 +238,8 @@ export async function sendClaudeNotification({
 
   switch (type) {
     case "session_start":
-      // Build a clean room display name
-      const ctx = sessionContext || {};
-      if (ctx.tmuxPane) {
-        // In tmux: "hostname:pane"
-        roomName = `${ctx.hostname || "claude"}:${ctx.tmuxPane}`;
-      } else {
-        // Not in tmux: "hostname:dirname"
-        const dirName = cwd ? cwd.split("/").pop() : "session";
-        roomName = `${ctx.hostname || "claude"}:${dirName}`;
-      }
+      // Use sessionKey directly as room name (it's the internal identifier)
+      roomName = sessionKey || "claude-session";
       // Text will be set after we know if room is new or existing
       typing = true; // Agent is starting work
       break;
