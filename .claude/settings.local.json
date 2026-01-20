@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(claude --version)"
+      "Bash(claude --version)",
+      "Bash(ls:*)",
+      "Bash(git -C /Users/artpi/GIT/clauder status)"
     ]
   }
 }
