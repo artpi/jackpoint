@@ -102,9 +102,13 @@ function escapeForTmux(message) {
 function sendToTmux(target, message) {
   try {
     const escaped = escapeForTmux(message);
-    // Use -l (literal) for text, then send Enter separately
-    // This ensures Enter is interpreted as keypress, not literal text
-    execSync(`tmux send-keys -t "${target}" -l "${escaped}" && tmux send-keys -t "${target}" Enter`, {
+    // Use -l (literal) for text, then send C-m (raw Enter) separately
+    execSync(`tmux send-keys -t "${target}" -l "${escaped}"`, {
+      stdio: ["pipe", "pipe", "pipe"],
+      shell: true,
+    });
+    // Send Enter as C-m (Ctrl-M) which is the raw Enter keycode
+    execSync(`tmux send-keys -t "${target}" C-m`, {
       stdio: ["pipe", "pipe", "pipe"],
       shell: true,
     });
@@ -116,10 +120,16 @@ function sendToTmux(target, message) {
 }
 
 export class MatrixListener {
-  constructor() {
+  /**
+   * @param {string|null} myTmuxTarget - If provided, only inject messages to this tmux target.
+   *                                      This prevents duplicate injection when multiple wrappers run.
+   */
+  constructor(myTmuxTarget = null) {
     this.client = null;
     this.syncReady = false;
     this.roomToSession = {};
+    this.processedEvents = new Set(); // Deduplicate events
+    this.myTmuxTarget = myTmuxTarget; // Only handle messages for this target
   }
 
   async start() {
@@ -158,6 +168,22 @@ export class MatrixListener {
       // Ignore our own messages
       if (event.getSender() === session.userId) return;
 
+      // Deduplicate - skip if we've already processed this event
+      const eventId = event.getId();
+      if (this.processedEvents.has(eventId)) {
+        if (DEBUG) {
+          console.log(`[Listener] Skipping duplicate event: ${eventId}`);
+        }
+        return;
+      }
+      this.processedEvents.add(eventId);
+
+      // Limit set size to prevent memory leak
+      if (this.processedEvents.size > 1000) {
+        const firstId = this.processedEvents.values().next().value;
+        this.processedEvents.delete(firstId);
+      }
+
       const roomId = room.roomId;
       const message = content.body;
 
@@ -177,6 +203,14 @@ export class MatrixListener {
       const tmuxTarget = getTmuxTarget(sessionKey);
       if (!tmuxTarget) {
         console.log(`[Listener] Session ${sessionKey} has no tmux target`);
+        return;
+      }
+
+      // If we have a specific target filter, only inject messages for that target
+      if (this.myTmuxTarget && tmuxTarget !== this.myTmuxTarget) {
+        if (DEBUG) {
+          console.log(`[Listener] Skipping message for ${tmuxTarget} (not my target: ${this.myTmuxTarget})`);
+        }
         return;
       }
 
