@@ -1,18 +1,34 @@
 {
   "name": "jackpoint",
-  "version": "1.0.0",
-  "description": "Matrix CLI - login and send DMs",
+  "version": "0.5.0",
+  "description": "Matrix bridge for Claude Code - get mobile notifications when Claude needs input and respond via chat",
   "type": "module",
   "main": "index.js",
   "bin": {
-    "jackpoint": "./claude-matrix.js"
+    "jackpoint": "claude-matrix.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["Claude Code", "Matrix", "Beeper", "Codex"],
+  "author": "artpi",
+  "homepage": "https://piszek.com/?p=12897",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artpi/jackpoint.git"
+  },
+  "bugs": {
+    "url": "https://github.com/artpi/jackpoint/issues"
+  },
+  "files": [
+    "claude-matrix.js",
+    "matrix-bridge.js",
+    "matrix-listener.js",
+    "index.js",
+    "send-dm.js",
+    "lib/"
+  ],
   "dependencies": {
     "matrix-js-sdk": "^40.0.0"
   }
