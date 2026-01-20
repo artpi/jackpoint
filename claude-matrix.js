@@ -127,12 +127,22 @@ async function handleHookEvent(payload) {
         break;
 
       case "Notification":
-        // Only send idle_prompt notifications
         if (notification_type === "idle_prompt") {
           await sendClaudeNotification({
             type: "stop",
             sessionId: session_id,
             message: message || "Claude is idle",
+            cwd: cwd,
+            sessionKey: sessionKey,
+          });
+        } else if (notification_type === "permission_prompt") {
+          // Permission dialog is being shown
+          await sendClaudeNotification({
+            type: "permission",
+            sessionId: session_id,
+            toolName: tool_name,
+            toolInput: tool_input,
+            message: message,
             cwd: cwd,
             sessionKey: sessionKey,
           });

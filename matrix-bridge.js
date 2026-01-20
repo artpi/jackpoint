@@ -223,6 +223,7 @@ export async function sendClaudeNotification({
   sessionId,
   message,
   toolName,
+  toolInput,
   questions,
   cwd,
   sessionKey,
@@ -267,6 +268,31 @@ export async function sendClaudeNotification({
     case "tool_use":
       text = `🔧 **Tool:** ${toolName}\n${message || ""}`;
       typing = true; // Agent is working
+      break;
+
+    case "permission":
+      text = `🔐 **Permission Required**`;
+      if (toolName) {
+        text += `: ${toolName}`;
+      }
+      text += "\n";
+      if (toolInput) {
+        // Format based on tool type
+        if (toolName === "Bash" && toolInput.command) {
+          text += `\`\`\`\n${toolInput.command}\n\`\`\``;
+        } else if ((toolName === "Edit" || toolName === "Write") && toolInput.file_path) {
+          text += `File: \`${toolInput.file_path}\``;
+        } else if (toolName === "Read" && toolInput.file_path) {
+          text += `File: \`${toolInput.file_path}\``;
+        } else {
+          // Generic: show tool input as JSON
+          text += `\`\`\`json\n${JSON.stringify(toolInput, null, 2)}\n\`\`\``;
+        }
+      } else if (message) {
+        // Fallback to message if no tool input (from Notification event)
+        text += message;
+      }
+      typing = false; // Waiting for permission
       break;
 
     default:

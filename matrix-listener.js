@@ -89,6 +89,36 @@ function sendToTmux(target, message) {
   }
 }
 
+// Capture last N lines from tmux pane
+function captureTmuxLines(target, lines = 30) {
+  try {
+    // capture-pane -p prints to stdout, -S specifies start line (negative = from end)
+    const output = execSync(`tmux capture-pane -t "${target}" -p -S -${lines}`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      shell: true,
+    });
+    return output.trimEnd();
+  } catch (e) {
+    if (DEBUG) {
+      console.error(`[Listener] Failed to capture tmux ${target}:`, e.message);
+    }
+    return null;
+  }
+}
+
+// Parse command from message (returns { command, args } or null)
+function parseCommand(message) {
+  const trimmed = message.trim();
+  if (!trimmed.startsWith("/")) return null;
+
+  const parts = trimmed.slice(1).split(/\s+/);
+  return {
+    command: parts[0].toLowerCase(),
+    args: parts.slice(1),
+  };
+}
+
 export class MatrixListener {
   /**
    * @param {string|null} myTmuxTarget - If provided, only inject messages to this tmux target.
@@ -189,6 +219,13 @@ export class MatrixListener {
         return;
       }
 
+      // Check for commands
+      const cmd = parseCommand(message);
+      if (cmd) {
+        this.handleCommand(cmd, roomId, tmuxTarget);
+        return;
+      }
+
       if (DEBUG) {
         console.log(`[Listener] Sending to tmux target: ${tmuxTarget}`);
       }
@@ -212,6 +249,38 @@ export class MatrixListener {
     }
 
     return true;
+  }
+
+  // Handle slash commands
+  async handleCommand(cmd, roomId, tmuxTarget) {
+    if (DEBUG) {
+      console.log(`[Listener] Command: /${cmd.command}`, cmd.args);
+    }
+
+    switch (cmd.command) {
+      case "lines": {
+        const lineCount = parseInt(cmd.args[0], 10) || 30;
+        const output = captureTmuxLines(tmuxTarget, lineCount);
+        if (output) {
+          const response = `\`\`\`\n${output}\n\`\`\``;
+          await this.client.sendTextMessage(roomId, response);
+        } else {
+          await this.client.sendTextMessage(roomId, "Failed to capture terminal output.");
+        }
+        break;
+      }
+
+      case "help": {
+        const helpText = `**Available commands:**
+- \`/lines [n]\` - Show last n lines of terminal (default: 30)
+- \`/help\` - Show this help message`;
+        await this.client.sendTextMessage(roomId, helpText);
+        break;
+      }
+
+      default:
+        await this.client.sendTextMessage(roomId, `Unknown command: /${cmd.command}. Type /help for available commands.`);
+    }
   }
 
   // Refresh room mapping (call when new sessions start)
