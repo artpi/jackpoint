@@ -1,0 +1,16 @@
+{
+  "name": "clauder",
+  "version": "1.0.0",
+  "description": "Matrix CLI - login and send DMs",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "matrix-js-sdk": "^40.0.0"
+  }
+}

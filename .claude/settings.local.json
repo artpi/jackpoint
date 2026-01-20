@@ -1,0 +1,56 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(source .env)",
+      "Bash(MATRIX_USER=\"$MATRIX_USER\" MATRIX_PASS=\"$MATRIX_PASS\" node:*)",
+      "Bash(source ~/.nvm/nvm.sh)",
+      "Bash(nvm use:*)",
+      "WebSearch",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(chmod:*)",
+      "WebFetch(domain:matrix-org.github.io)",
+      "WebFetch(domain:spec.matrix.org)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/artpi/GIT/clauder/.claude/hooks/matrix-notify.js",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/artpi/GIT/clauder/.claude/hooks/matrix-notify.js",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/artpi/GIT/clauder/.claude/hooks/matrix-notify.js",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
