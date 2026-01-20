@@ -17,9 +17,10 @@
  *         jackpoint claude --model sonnet
  */
 
-import { spawn } from "child_process";
+import { spawn, execSync, spawnSync } from "child_process";
 import { randomUUID } from "crypto";
 import { readFileSync } from "fs";
+import path from "path";
 import { MatrixListener } from "./matrix-listener.js";
 import { IPCServer } from "./lib/ipc-server.js";
 import { generateHooksSettings } from "./lib/hook-injector.js";
@@ -35,6 +36,57 @@ import {
 } from "./matrix-bridge.js";
 
 const DEBUG = process.env.MATRIX_DEBUG === "1";
+
+/**
+ * Ensure we're running inside tmux.
+ * If not, spawn a new tmux session named after the current directory and re-exec.
+ */
+function ensureTmux() {
+  // Check if tmux is installed
+  try {
+    execSync("tmux -V", { stdio: "pipe" });
+  } catch {
+    console.error("[Jackpoint] Error: tmux is not installed. Please install tmux first.");
+    process.exit(1);
+  }
+
+  // Check if already in tmux
+  if (process.env.TMUX) {
+    return; // Already in tmux, continue normally
+  }
+
+  // Use current directory name as session name (sanitized for tmux)
+  const cwd = process.cwd();
+  const dirName = path.basename(cwd);
+  const sessionName = dirName.replace(/[.:]/g, "-");
+
+  console.log(`[Jackpoint] Not in tmux. Creating session "${sessionName}"...`);
+
+  // Check if session already exists
+  let sessionExists = false;
+  try {
+    execSync(`tmux has-session -t "${sessionName}" 2>/dev/null`, { stdio: "pipe" });
+    sessionExists = true;
+  } catch {
+    sessionExists = false;
+  }
+
+  if (!sessionExists) {
+    // Create new session in current directory
+    execSync(`tmux new-session -d -s "${sessionName}" -c "${cwd}"`, { stdio: "pipe" });
+  }
+
+  // Build the command to run inside tmux
+  const args = process.argv.slice(1).map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ");
+  const cmd = `node ${args}`;
+
+  // Send the command to the tmux session
+  execSync(`tmux send-keys -t "${sessionName}" '${cmd}' C-m`, { stdio: "pipe" });
+
+  // Attach to the session (replaces current process visually)
+  spawnSync("tmux", ["attach", "-t", sessionName], { stdio: "inherit" });
+  process.exit(0);
+}
 
 /**
  * Handle hook events received via IPC
@@ -165,11 +217,14 @@ async function main() {
   // Parse arguments: jackpoint <program> [args...]
   const args = process.argv.slice(2);
 
-  // Handle --setup flag
+  // Handle --setup flag (allow outside tmux)
   if (args[0] === "--setup" || args[0] === "-s") {
     await runSetupWizard();
     process.exit(0);
   }
+
+  // Ensure we're running inside tmux (or spawn a session)
+  ensureTmux();
 
   // Check if configured, run wizard if not
   if (!isConfigured()) {
