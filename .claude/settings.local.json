@@ -12,7 +12,10 @@
       "WebFetch(domain:github.com)",
       "Bash(chmod:*)",
       "WebFetch(domain:matrix-org.github.io)",
-      "WebFetch(domain:spec.matrix.org)"
+      "WebFetch(domain:spec.matrix.org)",
+      "Bash(ls:*)",
+      "Bash(tmux display-message:*)",
+      "Bash(node --version:*)"
     ],
     "deny": [],
     "ask": []

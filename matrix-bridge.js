@@ -1,4 +1,17 @@
 #!/usr/bin/env node
+
+// Polyfill for Node.js < 22 (Promise.withResolvers is used by matrix-js-sdk 40+)
+if (!Promise.withResolvers) {
+  Promise.withResolvers = function () {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 import sdk from "matrix-js-sdk";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
