@@ -12,8 +12,10 @@ if (!Promise.withResolvers) {
   };
 }
 
+// Silence SDK logging - must be imported first
+import "./lib/silence-sdk.js";
+
 import sdk from "matrix-js-sdk";
-import { logger } from "matrix-js-sdk/lib/logger.js";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import { hostname } from "os";
@@ -27,16 +29,6 @@ import {
 
 // Check for debug mode
 const DEBUG = process.env.MATRIX_DEBUG === "1";
-
-// Disable verbose SDK logging unless in debug mode
-if (!DEBUG) {
-  logger.setLevel("silent");
-  logger.disableAll?.();
-  // Override methods directly as fallback
-  ["trace", "debug", "info", "warn", "error", "log"].forEach((method) => {
-    logger[method] = () => {};
-  });
-}
 
 // Get config values
 const config = getConfig();
@@ -97,22 +89,6 @@ export function getSessionKey(cwd = null) {
 // Re-export for use by other modules
 export { isConfigured, runSetupWizard };
 
-// Silent logger for SDK
-const silentLogger = {
-  getChild: () => silentLogger,
-  trace: () => {},
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-  log: () => {},
-};
-
-// Get logger based on debug mode
-function getClientLogger() {
-  return DEBUG ? undefined : silentLogger;
-}
-
 // Get authenticated client (exported for upfront auth)
 export async function getClient() {
   const session = loadSession();
@@ -123,7 +99,6 @@ export async function getClient() {
       baseUrl: MATRIX_HOMESERVER,
       accessToken: session.accessToken,
       userId: session.userId,
-      logger: getClientLogger(),
     });
 
     // Verify token still works
@@ -140,7 +115,7 @@ export async function getClient() {
     throw new Error("Matrix credentials not configured. Run 'jackpoint --setup' to configure.");
   }
 
-  const tempClient = sdk.createClient({ baseUrl: MATRIX_HOMESERVER, logger: getClientLogger() });
+  const tempClient = sdk.createClient({ baseUrl: MATRIX_HOMESERVER });
   const response = await tempClient.login("m.login.password", {
     user: MATRIX_USER,
     password: MATRIX_PASS,
@@ -156,7 +131,6 @@ export async function getClient() {
     baseUrl: MATRIX_HOMESERVER,
     accessToken: response.access_token,
     userId: response.user_id,
-    logger: getClientLogger(),
   });
 
   return { client, session: newSession };

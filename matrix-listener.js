@@ -18,24 +18,15 @@ if (!Promise.withResolvers) {
   };
 }
 
+// Silence SDK logging - must be imported first
+import "./lib/silence-sdk.js";
+
 import sdk from "matrix-js-sdk";
-import { logger } from "matrix-js-sdk/lib/logger.js";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { getConfig, loadSession } from "./lib/config.js";
 
-// Check for debug mode
 const DEBUG = process.env.MATRIX_DEBUG === "1";
-
-// Disable verbose SDK logging unless in debug mode
-if (!DEBUG) {
-  logger.setLevel("silent");
-  logger.disableAll?.();
-  // Override methods directly as fallback
-  ["trace", "debug", "info", "warn", "error", "log"].forEach((method) => {
-    logger[method] = () => {};
-  });
-}
 
 // Get config
 const config = getConfig();
@@ -127,23 +118,11 @@ export class MatrixListener {
       console.log("[Listener] Watching rooms:", Object.keys(this.roomToSession));
     }
 
-    // Create silent logger for client
-    const silentLogger = {
-      getChild: () => silentLogger,
-      trace: () => {},
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-      log: () => {},
-    };
-
     // Create client with sync support
     this.client = sdk.createClient({
       baseUrl: MATRIX_HOMESERVER,
       accessToken: session.accessToken,
       userId: session.userId,
-      logger: DEBUG ? undefined : silentLogger,
     });
     this.session = session;
 
