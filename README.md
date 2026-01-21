@@ -11,22 +11,6 @@ When running long Claude Code sessions, you don't want to babysit your terminal.
 
 You can respond from your phone, and the message gets injected back into the terminal.
 
-## Architecture
-
-```
-┌─────────────────┐     hooks (IPC)         ┌──────────────────┐
-│  Claude Code    │ ──────────────────────► │  Jackpoint       │
-│  (terminal)     │                         │  (Node.js)       │
-│                 │ ◄────────────────────── │                  │
-└─────────────────┘   tmux send-keys        └──────────────────┘
-                                                   ▲  │
-                                                   │  ▼
-                                             ┌──────────────┐
-                                             │  Matrix DM   │
-                                             │  (mobile)    │
-                                             └──────────────┘
-```
-
 ## Requirements
 
 - Node.js 18+
@@ -37,15 +21,7 @@ You can respond from your phone, and the message gets injected back into the ter
 ## Installation
 
 ```bash
-# Clone the repo
-git clone https://github.com/yourusername/jackpoint.git
-cd jackpoint
-
-# Install dependencies
-npm install
-
-# Link globally
-npm link
+npm install -g jackpoint
 ```
 
 ## Setup
@@ -58,9 +34,11 @@ jackpoint --setup
 
 You'll be prompted for:
 - Matrix homeserver URL (default: https://matrix.org)
-- Your Matrix username
-- Your Matrix password
-- Recipient user ID (who receives notifications - usually yourself on mobile)
+- Matrix username (for the bot account that runs Claude)
+- Matrix password (for the bot account)
+- Recipient user ID (your personal Matrix ID that receives notifications - usually yourself on mobile)
+
+**Note:** The login credentials are for a bot account that will run Claude and send you notifications. This can be a separate Matrix account or your main account. The recipient user ID is where you want to receive the notifications (typically your main Matrix account that you check on your phone).
 
 Credentials are stored in `~/.jackpoint/` (not in the repo).
 
@@ -118,6 +96,3 @@ MATRIX_DEBUG=1 jackpoint claude
     └── silence-sdk.js    # Suppresses noisy SDK logs
 ```
 
-## License
-
-ISC
