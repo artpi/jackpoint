@@ -69,11 +69,6 @@ In your Matrix DM, you can use these commands:
 
 Any other message is sent directly to Claude as input.
 
-### Debug Mode
-
-```bash
-MATRIX_DEBUG=1 jackpoint claude
-```
 
 ## How It Works
 
@@ -81,18 +76,3 @@ MATRIX_DEBUG=1 jackpoint claude
 2. **IPC Socket**: Hooks ping a Unix socket instead of doing Matrix I/O directly
 3. **Matrix Listener**: Listens for incoming Matrix messages and injects them via `tmux send-keys`
 4. **Session Persistence**: Matrix rooms persist by tmux pane (hostname:session:window.pane)
-
-## Project Structure
-
-```
-├── claude-matrix.js      # Main CLI entry point
-├── matrix-bridge.js      # Matrix API layer
-├── matrix-listener.js    # Inbound message handler
-└── lib/
-    ├── config.js         # Configuration management
-    ├── hook-injector.js  # Generates Claude hook settings
-    ├── hook-ping.js      # Lightweight hook script
-    ├── ipc-server.js     # Unix socket server
-    └── silence-sdk.js    # Suppresses noisy SDK logs
-```
-
